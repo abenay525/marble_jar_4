@@ -5,6 +5,26 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Marble Jar — Teacher View</title>
 
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
+    authDomain: "grade-marbles.firebaseapp.com",
+    projectId: "grade-marbles",
+    storageBucket: "grade-marbles.firebasestorage.app",
+    messagingSenderId: "879432744952",
+    appId: "1:879432744952:web:f874d162ba8a652f74600d"
+  };
+
+  // Initialize Firebase
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+
 <style>
 :root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
 html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
@@ -16,32 +36,6 @@ button:disabled{background:#aaa;cursor:not-allowed}
 #canvasWrap{display:flex;justify-content:center;padding:12px}
 canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;height:auto}
 </style>
-
-<!-- Firebase SDKs -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
-  authDomain: "grade-marbles.firebaseapp.com",
-  projectId: "grade-marbles",
-  storageBucket: "grade-marbles.firebasestorage.app",
-  messagingSenderId: "879432744952",
-  appId: "1:879432744952:web:f874d162ba8a652f74600d"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// Firestore reference
-const marbleDoc = doc(db, "marbleJar", "state");
-
-// Initialize document if not exists
-getDoc(marbleDoc).then(d => { if(!d.exists()) setDoc(marbleDoc, { marbles: [] }); });
-</script>
 </head>
 <body>
 
@@ -57,10 +51,7 @@ getDoc(marbleDoc).then(d => { if(!d.exists()) setDoc(marbleDoc, { marbles: [] })
   <canvas id="c" width="900" height="500" aria-label="Marble jar"></canvas>
 </div>
 
-<script type="module">
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// Teacher password
+<script>
 const TEACHER_PASSWORD = "openup123";
 
 // Canvas + context
@@ -80,19 +71,24 @@ const GRAVITY = 0.2;
 const FRICTION = 0.995;
 const BOUNCE = 0.85;
 
-// Firestore reference
-const db = getFirestore();
-const marbleDoc = doc(db, "marbleJar", "state");
+// Load marbles from Firestore, then start render loop
+db.collection("marbleJar").doc("state").get().then(doc => {
+  if(doc.exists) marbles = doc.data().marbles || [];
+  updateCount();
 
-// Save state to Firestore
-function saveState(){
-  setDoc(marbleDoc, { marbles }).catch(err => console.error("Error saving marbles:", err));
-}
+  // Enable teacher buttons after data loads
+  addBtn.disabled = false;
+  removeBtn.disabled = false;
+  resetBtn.disabled = false;
 
-// Load real-time updates
-onSnapshot(marbleDoc, docSnap => {
-  if(docSnap.exists()){
-    marbles = docSnap.data().marbles || [];
+  // Start rendering
+  render();
+});
+
+// Listen for real-time updates (students see same state)
+db.collection("marbleJar").doc("state").onSnapshot(doc => {
+  if(doc.exists){
+    marbles = doc.data().marbles || [];
     updateCount();
   }
 });
@@ -103,28 +99,32 @@ function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
 
 // Create marble
 function createMarble(){
-  const r = (window.innerWidth < 520) ? 14 : 18;
+  const r = (window.innerWidth < 520)?14:18;
   const x = canvas.width/2 + rand(-60,60);
   const y = 30 + rand(-5,5);
-  marbles.push({x,y,vx:rand(-1.5,1.5),vy:rand(-0.5,0.5),r,color:randColor()});
+  const m = {x,y,vx:rand(-1.5,1.5),vy:rand(-0.5,0.5),r,color:randColor()};
+  marbles.push(m);
   saveState();
 }
 
 // Remove marble
 function removeOne(){
-  if(marbles.length>0){ marbles.pop(); saveState(); }
+  if(marbles.length>0){
+    marbles.pop();
+    saveState();
+  }
 }
 
 // Reset jar
 function resetJar(){
-  if(!confirm("Reset jar? This will remove all marbles.")) return;
+  if(!confirm('Reset jar? This will remove all marbles.')) return;
   marbles=[];
   saveState();
 }
 
 // Physics
 function stepPhysics(){
-  const W=canvas.width, H=canvas.height;
+  const W=canvas.width,H=canvas.height;
   for(let i=0;i<marbles.length;i++){
     const m=marbles[i];
     m.vy+=GRAVITY; m.vx*=FRICTION; m.vy*=FRICTION;
@@ -156,8 +156,7 @@ function drawMarble(m){
   g.addColorStop(0.15,'rgba(255,255,255,0.6)');
   g.addColorStop(0.5,m.color);
   g.addColorStop(1,'rgba(0,0,0,0.08)');
-  ctx.fillStyle=g;
-  ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=1; ctx.stroke();
 }
 
@@ -169,10 +168,11 @@ function render(){
   updateCount();
   requestAnimationFrame(render);
 }
-render();
 
 // Update counter
-function updateCount(){ countEl.textContent=`Marbles: ${marbles.length}`; }
+function updateCount(){
+  countEl.textContent=`Marbles: ${marbles.length}`;
+}
 
 // Resize canvas
 function resizeCanvas(){
@@ -183,20 +183,26 @@ window.addEventListener('resize',resizeCanvas);
 resizeCanvas();
 
 // Buttons
-addBtn.addEventListener('click',createMarble);
-removeBtn.addEventListener('click',removeOne);
-resetBtn.addEventListener('click',resetJar);
+addBtn.addEventListener('click',()=>createMarble());
+removeBtn.addEventListener('click',()=>removeOne());
+resetBtn.addEventListener('click',()=>resetJar());
 
 // Teacher login
 teacherLogin.addEventListener('click',()=>{
-  const p=prompt("Enter teacher password:");
+  const p=prompt('Enter teacher password:');
   if(p===TEACHER_PASSWORD){
     addBtn.disabled=false;
     removeBtn.disabled=false;
     resetBtn.disabled=false;
-    alert("Teacher controls unlocked.");
-  } else alert("Incorrect password.");
+    alert('Teacher controls unlocked.');
+  } else alert('Incorrect password.');
 });
+
+// Save state to Firestore
+function saveState(){
+  db.collection("marbleJar").doc("state").set({marbles})
+    .catch(err=>console.error("Error saving marbles:",err));
+}
 </script>
 
 </body>

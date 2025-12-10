@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Marble Jar — Add Single Marble</title>
 
-<!-- Firebase v8 SDKs -->
+<!-- Firebase v8 SDK -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
 <script>
-  // Firebase config
-  const firebaseConfig = {
+  // Your Firebase configuration
+  var firebaseConfig = {
     apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
     authDomain: "grade-marbles.firebaseapp.com",
     projectId: "grade-marbles",
@@ -19,8 +19,65 @@
     messagingSenderId: "879432744952",
     appId: "1:879432744952:web:f874d162ba8a652f74600d"
   };
-
   // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-</s
+  var db = firebase.firestore();
+</script>
+
+<style>
+  :root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
+  html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+  .topbar{display:flex;gap:8px;align-items:center;padding:10px;background:transparent}
+  button{background:var(--btn);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+  button.gray{background:#666}
+  button:disabled{background:#aaa;cursor:not-allowed}
+  #count{margin-left:auto;font-weight:700;color:var(--ui)}
+  #canvasWrap{display:flex;justify-content:center;padding:12px}
+  canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;height:auto}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+  <button id="teacherLogin">Teacher Login</button>
+  <button id="addBtn" disabled>Add 1</button>
+  <button id="removeBtn" disabled>Remove 1</button>
+  <button id="resetBtn" disabled class="gray">Reset (Teacher)</button>
+  <div id="count">Marbles: 0</div>
+</div>
+
+<div id="canvasWrap">
+  <canvas id="c" width="900" height="500" aria-label="Marble jar"></canvas>
+</div>
+
+<script>
+const TEACHER_PASSWORD = "openup123";
+
+// Canvas
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+// Controls
+const teacherLogin = document.getElementById("teacherLogin");
+const addBtn = document.getElementById("addBtn");
+const removeBtn = document.getElementById("removeBtn");
+const resetBtn = document.getElementById("resetBtn");
+const countEl = document.getElementById("count");
+
+// Physics state
+let marbles = [];
+const GRAVITY = 0.2;
+const FRICTION = 0.995;
+const BOUNCE = 0.85;
+
+// Load initial marble state from Firestore
+db.collection("marbleJar").doc("state").get().then(doc => {
+  if (doc.exists) marbles = doc.data().marbles || [];
+  updateCount();
+});
+
+// Listen for real-time updates
+db.collection("marbleJar").doc("state")
+  .onSnapshot(doc => {
+    if (doc.exis

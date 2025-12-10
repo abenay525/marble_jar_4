@@ -18,4 +18,104 @@ canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;h
 </head>
 <body>
 
-<div class=
+<div class="topbar">
+  <button id="teacherLogin">Teacher Login</button>
+  <button id="addBtn" disabled>Add 1</button>
+  <button id="removeBtn" disabled>Remove 1</button>
+  <button id="resetBtn" disabled class="gray">Reset (Teacher)</button>
+  <div id="count">Marbles: 0</div>
+</div>
+
+<div id="canvasWrap">
+  <canvas id="c" width="900" height="500" aria-label="Marble jar"></canvas>
+</div>
+
+<script>
+const TEACHER_PASSWORD = "openup123";
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+const teacherLogin = document.getElementById("teacherLogin");
+const addBtn = document.getElementById("addBtn");
+const removeBtn = document.getElementById("removeBtn");
+const resetBtn = document.getElementById("resetBtn");
+const countEl = document.getElementById("count");
+
+let marbles = [];
+const GRAVITY = 0.2;
+const FRICTION = 0.995;
+const BOUNCE = 0.85;
+
+function rand(min,max){ return min + Math.random()*(max-min); }
+function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
+
+function createMarble(){
+  const r = (window.innerWidth<520)?14:18;
+  const x = canvas.width/2 + rand(-60,60);
+  const y = 30 + rand(-5,5);
+  const m = {x,y,vx:rand(-1.5,1.5),vy:rand(-0.5,0.5),r,color:randColor()};
+  marbles.push(m);
+  updateCount();
+}
+
+function removeOne(){ if(marbles.length>0){ marbles.pop(); updateCount(); } }
+function resetJar(){ marbles=[]; updateCount(); }
+
+function stepPhysics(){
+  const W=canvas.width,H=canvas.height;
+  for(let i=0;i<marbles.length;i++){
+    const m=marbles[i];
+    m.vy+=GRAVITY; m.vx*=FRICTION; m.vy*=FRICTION;
+    m.x+=m.vx; m.y+=m.vy;
+    if(m.x-m.r<0){ m.x=m.r; m.vx=-m.vx*BOUNCE; }
+    if(m.x+m.r>W){ m.x=W-m.r; m.vx=-m.vx*BOUNCE; }
+    if(m.y-m.r<0){ m.y=m.r; m.vy=-m.vy*BOUNCE; }
+    if(m.y+m.r>H){ m.y=H-m.r; m.vy=-m.vy*BOUNCE; }
+    for(let j=i+1;j<marbles.length;j++){
+      const n=marbles[j], dx=n.x-m.x, dy=n.y-m.y, dist=Math.hypot(dx,dy), minD=m.r+n.r;
+      if(dist>0 && dist<minD){
+        const overlap=minD-dist, ux=dx/dist, uy=dy/dist;
+        m.x-=ux*overlap*0.5; m.y-=uy*overlap*0.5;
+        n.x+=ux*overlap*0.5; n.y+=uy*overlap*0.5;
+        const tvx=m.vx,tvy=m.vy;
+        m.vx=n.vx*0.95; m.vy=n.vy*0.95;
+        n.vx=tvx*0.95; n.vy=tvy*0.95;
+      }
+    }
+  }
+}
+
+function drawMarble(m){
+  const g=ctx.createRadialGradient(m.x-m.r*0.35,m.y-m.r*0.35,m.r*0.1,m.x,m.y,m.r);
+  g.addColorStop(0,'rgba(255,255,255,0.95)');
+  g.addColorStop(0.15,'rgba(255,255,255,0.6)');
+  g.addColorStop(0.5,m.color);
+  g.addColorStop(1,'rgba(0,0,0,0.08)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=1; ctx.stroke();
+}
+
+function render(){ ctx.clearRect(0,0,canvas.width,canvas.height); stepPhysics(); marbles.forEach(drawMarble); updateCount(); requestAnimationFrame(render); }
+render();
+
+function updateCount(){ countEl.textContent=`Marbles: ${marbles.length}`; }
+
+function resizeCanvas(){ canvas.width=Math.min(window.innerWidth-20,1100); canvas.height=Math.min(window.innerHeight-140,700); }
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+
+addBtn.addEventListener('click',()=>createMarble());
+removeBtn.addEventListener('click',()=>removeOne());
+resetBtn.addEventListener('click',()=>{ if(confirm('Reset jar? This will remove all marbles.')) resetJar(); });
+
+teacherLogin.addEventListener('click',()=>{
+  const p=prompt('Enter teacher password:');
+  if(p===TEACHER_PASSWORD){
+    addBtn.disabled=false; removeBtn.disabled=false; resetBtn.disabled=false; alert('Teacher controls unlocked.');
+  } else alert('Incorrect password.');
+});
+</script>
+
+</body>
+</html>

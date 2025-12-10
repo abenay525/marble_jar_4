@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Marble Jar — Teacher</title>
 
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+<!-- Firebase compat SDKs (namespaced style, works with old code) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 <style>
 :root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
@@ -37,16 +37,19 @@ canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;h
 
 <script>
 window.onload = function() {
-  // --- Firebase setup ---
+
   const TEACHER_PASSWORD = "openup123";
-  const app = firebase.initializeApp({
+
+  // --- Firebase init ---
+  const firebaseConfig = {
     apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
     authDomain: "grade-marbles.firebaseapp.com",
     projectId: "grade-marbles",
     storageBucket: "grade-marbles.firebasestorage.app",
     messagingSenderId: "879432744952",
     appId: "1:879432744952:web:f874d162ba8a652f74600d"
-  });
+  };
+  firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
   // --- Canvas setup ---
@@ -85,7 +88,7 @@ window.onload = function() {
 
   function resetJar(){
     if(!confirm('Reset jar? This will remove all marbles.')) return;
-    marbles = [];
+    marbles=[];
     saveState();
   }
 
@@ -163,7 +166,7 @@ window.onload = function() {
     } else alert('Incorrect password.');
   });
 
-  // --- Load initial state then start render ---
+  // --- Load initial state from Firestore then start render ---
   db.collection("marbleJar").doc("state").get().then(doc=>{
     if(doc.exists) marbles=doc.data().marbles||[];
     render();

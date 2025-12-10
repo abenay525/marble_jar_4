@@ -35,128 +35,155 @@
 <script>
 const canvas = document.getElementById("jarCanvas");
 const ctx = canvas.getContext("2d");
-let marbles = [];
-let isTeacher = false;
 
-// JSONBin.io config
 const BIN_ID = "693a03a3ae596e708f9126c0";
 const API_KEY = "$2a$10$0rZ/Uu8tUG56P9.a7m1nHu21gNVTdlPYXrNYbwMEM5mIoudpjmfEi";
-const STORAGE_KEY = "marbleJar_shared";
+
+let marbles = [];
+let marbleCount = 0;
+let isTeacher = false;
+
+// Gravity and physics settings
+const gravity = 0.5;
+const bounce = -0.7;
+
+// Marble class
+class Marble {
+  constructor() {
+    this.radius = 15 + Math.random()*5;
+    this.x = 100 + Math.random()*300;
+    this.y = 50;
+    this.vx = Math.random()*4-2;
+    this.vy = 0;
+    this.color = ["red","blue","green","yellow","purple"][Math.floor(Math.random()*5)];
+  }
+  update() {
+    this.vy += gravity;
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // collision with jar bottom
+    if(this.y + this.radius > 550) {
+      this.y = 550 - this.radius;
+      this.vy *= bounce;
+      this.vx *= 0.9;
+    }
+    // collision with jar sides
+    if(this.x - this.radius < 50) { this.x = 50 + this.radius; this.vx *= bounce; }
+    if(this.x + this.radius > 450) { this.x = 450 - this.radius; this.vx *= bounce; }
+  }
+  draw() {
+    const grad = ctx.createRadialGradient(this.x-3,this.y-3,this.radius/5,this.x,this.y,this.radius);
+    grad.addColorStop(0,this.color);
+    grad.addColorStop(1,"#555");
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+}
 
 // Draw jar
 function drawJar() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle="#ddd";
-    ctx.fillRect(50,50,400,500); // jar
-    marbles.forEach(m => {
-        ctx.beginPath();
-        ctx.arc(m.x,m.y,m.radius,0,Math.PI*2);
-        const grad = ctx.createRadialGradient(m.x-3,m.y-3,m.radius/5,m.x,m.y,m.radius);
-        grad.addColorStop(0,m.color);
-        grad.addColorStop(1,"#555");
-        ctx.fillStyle=grad;
-        ctx.fill();
-    });
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#ddd";
+  ctx.fillRect(50,50,400,500); // jar
+  marbles.forEach(m => { m.update(); m.draw(); });
 }
 
 // Update count display
 function updateCount() {
-    document.getElementById("count").innerText = marbles.length;
+  document.getElementById("count").innerText = marbleCount;
 }
 
-// Load from JSONBin
+// Load count from JSONBin
 async function loadMarbles() {
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-            headers: { "X-Master-Key": API_KEY }
-        });
-        const data = await res.json();
-        marbles = data.record.marbles || [];
-        drawJar();
-        updateCount();
-    } catch(e) {
-        console.error("Failed to load marbles:", e);
-    }
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+      headers: { "X-Master-Key": API_KEY }
+    });
+    const data = await res.json();
+    marbleCount = data.record.marbles || 0;
+    marbles = [];
+    for(let i=0;i<marbleCount;i++) marbles.push(new Marble());
+    updateCount();
+  } catch(e) { console.error("Failed to load marbles:", e); }
 }
 
-// Save to JSONBin
+// Save count to JSONBin
 async function saveMarbles() {
-    try {
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "X-Master-Key": API_KEY
-            },
-            body: JSON.stringify({marbles})
-        });
-    } catch(e) {
-        console.error("Failed to save marbles:", e);
-    }
+  try {
+    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": API_KEY
+      },
+      body: JSON.stringify({marbles: marbleCount})
+    });
+  } catch(e) { console.error("Failed to save marbles:", e); }
 }
 
-// Utility: random marble
-function createMarble() {
-    return {
-        x: 250 + (Math.random()*200-100),
-        y: 500 - Math.random()*400,
-        radius: 15 + Math.random()*5,
-        color: ["red","blue","green","yellow","purple"][Math.floor(Math.random()*5)]
-    };
-}
-
-// Add marbles
+// Add/Remove/Reset
 async function addMarbles(n) {
-    if(!isTeacher) { alert("Teacher login required!"); return; }
-    for(let i=0;i<n;i++) marbles.push(createMarble());
-    drawJar();
-    updateCount();
-    await saveMarbles();
+  if(!isTeacher) { alert("Teacher login required!"); return; }
+  for(let i=0;i<n;i++) marbles.push(new Marble());
+  marbleCount += n;
+  updateCount();
+  await saveMarbles();
 }
 
-// Remove marbles
 async function removeMarbles(n) {
-    if(!isTeacher) { alert("Teacher login required!"); return; }
-    marbles.splice(0,n);
-    drawJar();
-    updateCount();
-    await saveMarbles();
+  if(!isTeacher) { alert("Teacher login required!"); return; }
+  n = Math.min(n, marbleCount);
+  marbles.splice(0,n);
+  marbleCount -= n;
+  updateCount();
+  await saveMarbles();
 }
 
-// Reset jar
 async function resetJar() {
-    if(!isTeacher) { alert("Teacher login required!"); return; }
-    if(confirm("Are you sure you want to reset the jar?")) {
-        marbles = [];
-        drawJar();
-        updateCount();
-        await saveMarbles();
-    }
+  if(!isTeacher) { alert("Teacher login required!"); return; }
+  if(confirm("Are you sure you want to reset the jar?")) {
+    marbles = [];
+    marbleCount = 0;
+    updateCount();
+    await saveMarbles();
+  }
 }
 
 // Prompt wrappers
 function addMarblePrompt() {
-    const n = parseInt(prompt("How many marbles to add?", "1"));
-    if(!isNaN(n) && n>0) addMarbles(n);
+  const n = parseInt(prompt("How many marbles to add?", "1"));
+  if(!isNaN(n) && n>0) addMarbles(n);
 }
+
 function removeMarblePrompt() {
-    const n = parseInt(prompt("How many marbles to remove?", "1"));
-    if(!isNaN(n) && n>0) removeMarbles(n);
+  const n = parseInt(prompt("How many marbles to remove?", "1"));
+  if(!isNaN(n) && n>0) removeMarbles(n);
 }
 
 // Teacher login
 function teacherLogin() {
-    const pw = prompt("Enter teacher password:");
-    if(pw==="openup123") {
-        isTeacher=true;
-        alert("Teacher access granted!");
-    } else {
-        alert("Wrong password");
-    }
+  const pw = prompt("Enter teacher password:");
+  if(pw==="openup123") {
+    isTeacher = true;
+    alert("Teacher access granted!");
+  } else {
+    alert("Wrong password");
+  }
 }
 
-// Initial load
+// Animation loop
+function animate() {
+  drawJar();
+  requestAnimationFrame(animate);
+}
+
+// Initialize
 loadMarbles();
+animate();
 </script>
+
 </body>
 </html>

@@ -6,19 +6,69 @@
 <title>Marble Jar — Teacher View</title>
 <style>
   :root { --bg: #eef2f5; --ui: #222; --btn: #2e7d32; }
-  html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: var(--bg);}
-  .topbar { display: flex; gap: 8px; align-items: center; padding: 10px; background: transparent; }
-  button { background: var(--btn); color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600;}
+  html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: var(--bg); display: flex; justify-content: center; align-items: center; }
+  .topbar { display: flex; gap: 10px; align-items: center; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  button { background: var(--btn); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
   button.gray { background: #666; }
-  #count { margin-left: auto; font-weight: 700; color: var(--ui); }
+  #count { margin-left: 20px; font-weight: 700; font-size: 18px; color: var(--ui); }
 </style>
 
-<!-- Firebase SDK -->
-<script type="module">
-  // Import Firebase functions
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+</head>
+<body>
 
-  // Firebase config
+<div class="topbar">
+  <button id="addBtn">Add 1</button>
+  <button id="removeBtn">Remove 1</button>
+  <button id="resetBtn" class="gray">Reset</button>
+  <div id="count">Marbles: 0</div>
+</div>
+
+<script>
+  // --- Firebase setup ---
   const firebaseConfig = {
-    apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_g_
+    apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
+    authDomain: "grade-marbles.firebaseapp.com",
+    projectId: "grade-marbles",
+    storageBucket: "grade-marbles.firebasestorage.app",
+    messagingSenderId: "879432744952",
+    appId: "1:879432744952:web:f874d162ba8a652f74600d"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const marbleDoc = db.collection("marbleJar").doc("state");
+
+  // DOM elements
+  const addBtn = document.getElementById("addBtn");
+  const removeBtn = document.getElementById("removeBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const countEl = document.getElementById("count");
+
+  // Initialize marble count if it doesn't exist
+  marbleDoc.get().then(doc => {
+    if (!doc.exists) {
+      marbleDoc.set({ count: 0 });
+      countEl.textContent = "Marbles: 0";
+    } else {
+      countEl.textContent = `Marbles: ${doc.data().count}`;
+    }
+  });
+
+  // Button actions
+  addBtn.onclick = () => marbleDoc.update({ count: firebase.firestore.FieldValue.increment(1) });
+  removeBtn.onclick = () => marbleDoc.update({ count: firebase.firestore.FieldValue.increment(-1) });
+  resetBtn.onclick = () => {
+    if (confirm("Reset marble jar to 0?")) marbleDoc.set({ count: 0 });
+  };
+
+  // Real-time updates
+  marbleDoc.onSnapshot(doc => {
+    if (doc.exists) countEl.textContent = `Marbles: ${doc.data().count}`;
+  });
+</script>
+
+</body>
+</html>

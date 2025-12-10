@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Marble Jar — Teacher</title>
 
-<!-- Firebase v10 modular SDK -->
-<script type="module">
-  // Import from Firebase CDN
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<!-- Firebase v10 compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  const TEACHER_PASSWORD = "openup123";
-
+<script>
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
     authDomain: "grade-marbles.firebaseapp.com",
@@ -22,123 +20,47 @@
     appId: "1:879432744952:web:f874d162ba8a652f74600d"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  // Canvas setup
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.min(window.innerWidth-20,1100);
-  canvas.height = Math.min(window.innerHeight-140,700);
-  canvas.style.border = "3px solid #444";
-  canvas.style.borderRadius = "14px";
-  document.body.appendChild(canvas);
-  const ctx = canvas.getContext("2d");
-
-  // Controls
-  const teacherLogin = document.createElement("button");
-  teacherLogin.textContent = "Teacher Login";
-  const addBtn = document.createElement("button");
-  addBtn.textContent = "Add 1"; addBtn.disabled = true;
-  const removeBtn = document.createElement("button");
-  removeBtn.textContent = "Remove 1"; removeBtn.disabled = true;
-  const resetBtn = document.createElement("button");
-  resetBtn.textContent = "Reset (Teacher)"; resetBtn.disabled = true;
-
-  const counter = document.createElement("div");
-  counter.textContent = "Marbles: 0";
-  counter.style.marginTop = "8px";
-
-  document.body.insertBefore(counter, canvas);
-  document.body.insertBefore(resetBtn, counter);
-  document.body.insertBefore(removeBtn, resetBtn);
-  document.body.insertBefore(addBtn, removeBtn);
-  document.body.insertBefore(teacherLogin, addBtn);
-
-  // Marble state
-  let marbles = [];
-  const GRAVITY=0.2, FRICTION=0.995, BOUNCE=0.85;
-
-  function rand(min,max){ return min + Math.random()*(max-min); }
-  function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
-
-  function createMarble(){
-    const r = (window.innerWidth < 520)?14:18;
-    const x = canvas.width/2+rand(-60,60);
-    const y = 30+rand(-5,5);
-    marbles.push({x,y,vx:rand(-1.5,1.5),vy:rand(-0.5,0.5),r,color:randColor()});
-    saveState();
-  }
-
-  function removeOne(){ if(marbles.length>0){ marbles.pop(); saveState(); } }
-  function resetJar(){ if(confirm("Reset jar?")){ marbles=[]; saveState(); } }
-
-  function stepPhysics(){
-    const W=canvas.width,H=canvas.height;
-    for(let i=0;i<marbles.length;i++){
-      const m=marbles[i]; m.vy+=GRAVITY; m.vx*=FRICTION; m.vy*=FRICTION; m.x+=m.vx; m.y+=m.vy;
-      if(m.x-m.r<0){ m.x=m.r; m.vx=-m.vx*BOUNCE; }
-      if(m.x+m.r>W){ m.x=W-m.r; m.vx=-m.vx*BOUNCE; }
-      if(m.y-m.r<0){ m.y=m.r; m.vy=-m.vy*BOUNCE; }
-      if(m.y+m.r>H){ m.y=H-m.r; m.vy=-m.vy*BOUNCE; }
-      for(let j=i+1;j<marbles.length;j++){
-        const n=marbles[j], dx=n.x-m.x, dy=n.y-m.y, dist=Math.hypot(dx,dy), minD=m.r+n.r;
-        if(dist>0 && dist<minD){
-          const overlap=minD-dist, ux=dx/dist, uy=dy/dist;
-          m.x-=ux*overlap*0.5; m.y-=uy*overlap*0.5; n.x+=ux*overlap*0.5; n.y+=uy*overlap*0.5;
-          const tvx=m.vx,tvy=m.vy; m.vx=n.vx*0.95; m.vy=n.vy*0.95; n.vx=tvx*0.95; n.vy=tvy*0.95;
-        }
-      }
-    }
-  }
-
-  function drawMarble(m){
-    const g=ctx.createRadialGradient(m.x-m.r*0.35,m.y-m.r*0.35,m.r*0.1,m.x,m.y,m.r);
-    g.addColorStop(0,'rgba(255,255,255,0.95)');
-    g.addColorStop(0.15,'rgba(255,255,255,0.6)');
-    g.addColorStop(0.5,m.color);
-    g.addColorStop(1,'rgba(0,0,0,0.08)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=1; ctx.stroke();
-  }
-
-  function render(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    stepPhysics();
-    marbles.forEach(drawMarble);
-    counter.textContent=`Marbles: ${marbles.length}`;
-    requestAnimationFrame(render);
-  }
-
-  async function saveState(){
-    await setDoc(doc(db,"marbleJar","state"),{marbles});
-  }
-
-  // Load initial state and listen for updates
-  async function init(){
-    const docSnap = await getDoc(doc(db,"marbleJar","state"));
-    if(docSnap.exists()) marbles=docSnap.data().marbles||[];
-    render();
-
-    onSnapshot(doc(db,"marbleJar","state"),snap=>{
-      if(snap.exists()) marbles=snap.data().marbles||[];
-    });
-  }
-  init();
-
-  // Wire buttons
-  teacherLogin.addEventListener("click",()=>{
-    const p=prompt("Enter teacher password:");
-    if(p===TEACHER_PASSWORD){
-      addBtn.disabled=false;
-      removeBtn.disabled=false;
-      resetBtn.disabled=false;
-      alert("Teacher controls unlocked");
-    } else alert("Incorrect password");
-  });
-  addBtn.addEventListener("click",()=>createMarble());
-  removeBtn.addEventListener("click",()=>removeOne());
-  resetBtn.addEventListener("click",()=>resetJar());
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 </script>
+
+<style>
+:root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
+html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+.topbar{display:flex;gap:8px;align-items:center;padding:10px;background:transparent}
+button{background:var(--btn);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+button.gray{background:#666}
+button:disabled{background:#aaa;cursor:not-allowed}
+#count{margin-left:auto;font-weight:700;color:var(--ui)}
+#canvasWrap{display:flex;justify-content:center;padding:12px}
+canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;height:auto}
+</style>
 </head>
-<body></body>
-</html>
+<body>
+
+<div class="topbar">
+  <button id="teacherLogin">Teacher Login</button>
+  <button id="addBtn" disabled>Add 1</button>
+  <button id="removeBtn" disabled>Remove 1</button>
+  <button id="resetBtn" disabled class="gray">Reset (Teacher)</button>
+  <div id="count">Marbles: 0</div>
+</div>
+
+<div id="canvasWrap">
+  <canvas id="c" width="900" height="500" aria-label="Marble jar"></canvas>
+</div>
+
+<script>
+const TEACHER_PASSWORD = "openup123";
+
+// Canvas
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+// Controls
+const teacherLogin = document.getElementById("teacherLogin");
+const addBtn = document.getElementById("addBtn");
+const removeBtn = document.getElementById("removeBtn");
+const resetBtn = document.getElementById("resetBtn");
+const countEl

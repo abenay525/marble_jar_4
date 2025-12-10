@@ -5,41 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Marble Jar — Teacher</title>
 
-<!-- Firebase compat SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<!-- Firebase v10 modular SDK -->
+<script type="module">
+  // Import from Firebase CDN
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-<style>
-:root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
-html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
-.topbar{display:flex;gap:8px;align-items:center;padding:10px;background:transparent}
-button{background:var(--btn);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
-button.gray{background:#666}
-button:disabled{background:#aaa;cursor:not-allowed}
-#count{margin-left:auto;font-weight:700;color:var(--ui)}
-#canvasWrap{display:flex;justify-content:center;padding:12px}
-canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;height:auto}
-</style>
-</head>
-<body>
-
-<div class="topbar">
-  <button id="teacherLogin">Teacher Login</button>
-  <button id="addBtn" disabled>Add 1</button>
-  <button id="removeBtn" disabled>Remove 1</button>
-  <button id="resetBtn" disabled class="gray">Reset (Teacher)</button>
-  <div id="count">Marbles: 0</div>
-</div>
-
-<div id="canvasWrap">
-  <canvas id="c" width="900" height="500"></canvas>
-</div>
-
-<script>
-window.onload = function() {
   const TEACHER_PASSWORD = "openup123";
 
-  // --- Firebase ---
   const firebaseConfig = {
     apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
     authDomain: "grade-marbles.firebaseapp.com",
@@ -48,40 +21,56 @@ window.onload = function() {
     messagingSenderId: "879432744952",
     appId: "1:879432744952:web:f874d162ba8a652f74600d"
   };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
 
-  // --- Canvas setup ---
-  const canvas = document.getElementById("c");
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Canvas setup
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.min(window.innerWidth-20,1100);
+  canvas.height = Math.min(window.innerHeight-140,700);
+  canvas.style.border = "3px solid #444";
+  canvas.style.borderRadius = "14px";
+  document.body.appendChild(canvas);
   const ctx = canvas.getContext("2d");
-  const teacherLogin = document.getElementById("teacherLogin");
-  const addBtn = document.getElementById("addBtn");
-  const removeBtn = document.getElementById("removeBtn");
-  const resetBtn = document.getElementById("resetBtn");
-  const countEl = document.getElementById("count");
 
+  // Controls
+  const teacherLogin = document.createElement("button");
+  teacherLogin.textContent = "Teacher Login";
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "Add 1"; addBtn.disabled = true;
+  const removeBtn = document.createElement("button");
+  removeBtn.textContent = "Remove 1"; removeBtn.disabled = true;
+  const resetBtn = document.createElement("button");
+  resetBtn.textContent = "Reset (Teacher)"; resetBtn.disabled = true;
+
+  const counter = document.createElement("div");
+  counter.textContent = "Marbles: 0";
+  counter.style.marginTop = "8px";
+
+  document.body.insertBefore(counter, canvas);
+  document.body.insertBefore(resetBtn, counter);
+  document.body.insertBefore(removeBtn, resetBtn);
+  document.body.insertBefore(addBtn, removeBtn);
+  document.body.insertBefore(teacherLogin, addBtn);
+
+  // Marble state
   let marbles = [];
-  const GRAVITY = 0.2, FRICTION = 0.995, BOUNCE = 0.85;
+  const GRAVITY=0.2, FRICTION=0.995, BOUNCE=0.85;
 
   function rand(min,max){ return min + Math.random()*(max-min); }
   function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
 
   function createMarble(){
-    const r=(window.innerWidth<520)?14:18;
-    const x=canvas.width/2+rand(-60,60);
-    const y=30+rand(-5,5);
+    const r = (window.innerWidth < 520)?14:18;
+    const x = canvas.width/2+rand(-60,60);
+    const y = 30+rand(-5,5);
     marbles.push({x,y,vx:rand(-1.5,1.5),vy:rand(-0.5,0.5),r,color:randColor()});
     saveState();
   }
 
-  function removeOne(){
-    if(marbles.length>0){ marbles.pop(); saveState(); }
-  }
-
-  function resetJar(){
-    if(!confirm('Reset jar? This will remove all marbles.')) return;
-    marbles=[]; saveState();
-  }
+  function removeOne(){ if(marbles.length>0){ marbles.pop(); saveState(); } }
+  function resetJar(){ if(confirm("Reset jar?")){ marbles=[]; saveState(); } }
 
   function stepPhysics(){
     const W=canvas.width,H=canvas.height;
@@ -96,7 +85,7 @@ window.onload = function() {
         if(dist>0 && dist<minD){
           const overlap=minD-dist, ux=dx/dist, uy=dy/dist;
           m.x-=ux*overlap*0.5; m.y-=uy*overlap*0.5; n.x+=ux*overlap*0.5; n.y+=uy*overlap*0.5;
-          const tvx=m.vx, tvy=m.vy; m.vx=n.vx*0.95; m.vy=n.vy*0.95; n.vx=tvx*0.95; n.vy=tvy*0.95;
+          const tvx=m.vx,tvy=m.vy; m.vx=n.vx*0.95; m.vy=n.vy*0.95; n.vx=tvx*0.95; n.vy=tvy*0.95;
         }
       }
     }
@@ -116,50 +105,40 @@ window.onload = function() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     stepPhysics();
     marbles.forEach(drawMarble);
-    countEl.textContent=`Marbles: ${marbles.length}`;
+    counter.textContent=`Marbles: ${marbles.length}`;
     requestAnimationFrame(render);
   }
 
-  function saveState(){
-    db.collection("marbleJar").doc("state").set({marbles})
-      .catch(err=>console.error("Error saving marbles:",err));
+  async function saveState(){
+    await setDoc(doc(db,"marbleJar","state"),{marbles});
   }
 
-  function resizeCanvas(){
-    canvas.width=Math.min(window.innerWidth-20,1100);
-    canvas.height=Math.min(window.innerHeight-140,700);
-  }
-  window.addEventListener('resize',resizeCanvas);
-  resizeCanvas();
+  // Load initial state and listen for updates
+  async function init(){
+    const docSnap = await getDoc(doc(db,"marbleJar","state"));
+    if(docSnap.exists()) marbles=docSnap.data().marbles||[];
+    render();
 
-  // --- Buttons wired AFTER Firebase ready ---
-  teacherLogin.addEventListener('click',()=>{
-    const p=prompt('Enter teacher password:');
+    onSnapshot(doc(db,"marbleJar","state"),snap=>{
+      if(snap.exists()) marbles=snap.data().marbles||[];
+    });
+  }
+  init();
+
+  // Wire buttons
+  teacherLogin.addEventListener("click",()=>{
+    const p=prompt("Enter teacher password:");
     if(p===TEACHER_PASSWORD){
       addBtn.disabled=false;
       removeBtn.disabled=false;
       resetBtn.disabled=false;
-      alert('Teacher controls unlocked.');
-    } else alert('Incorrect password.');
+      alert("Teacher controls unlocked");
+    } else alert("Incorrect password");
   });
-  addBtn.addEventListener('click',()=>createMarble());
-  removeBtn.addEventListener('click',()=>removeOne());
-  resetBtn.addEventListener('click',()=>resetJar());
-
-  // --- Load initial state then start render ---
-  db.collection("marbleJar").doc("state").get().then(doc=>{
-    if(doc.exists) marbles=doc.data().marbles||[];
-    render();
-  });
-
-  // Real-time updates
-  db.collection("marbleJar").doc("state").onSnapshot(doc=>{
-    if(doc.exists){
-      marbles=doc.data().marbles||[];
-    }
-  });
-
-};
+  addBtn.addEventListener("click",()=>createMarble());
+  removeBtn.addEventListener("click",()=>removeOne());
+  resetBtn.addEventListener("click",()=>resetJar());
 </script>
-</body>
+</head>
+<body></body>
 </html>

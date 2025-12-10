@@ -3,26 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Marble Jar — Add Single Marble</title>
-
-<!-- Firebase v8 SDK -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-<script>
-  // Firebase configuration
-  var firebaseConfig = {
-    apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
-    authDomain: "grade-marbles.firebaseapp.com",
-    projectId: "grade-marbles",
-    storageBucket: "grade-marbles.firebasestorage.app",
-    messagingSenderId: "879432744952",
-    appId: "1:879432744952:web:f874d162ba8a652f74600d"
-  };
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  var db = firebase.firestore();
-</script>
+<title>Marble Jar — Test Version</title>
 
 <style>
   :root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
@@ -36,7 +17,6 @@
   canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;height:auto}
 </style>
 </head>
-
 <body>
 
 <div class="topbar">
@@ -71,23 +51,6 @@ const GRAVITY = 0.2;
 const FRICTION = 0.995;
 const BOUNCE = 0.85;
 
-// Load marble state from Firestore
-db.collection("marbleJar").doc("state").get().then(doc => {
-  if (doc.exists) marbles = doc.data().marbles || [];
-  updateCount();
-}).catch(e => {
-  console.log("Firestore read failed, starting with empty jar.", e);
-});
-
-// Listen for real-time updates
-db.collection("marbleJar").doc("state")
-  .onSnapshot(doc => {
-    if (doc.exists) {
-      marbles = doc.data().marbles || [];
-      updateCount();
-    }
-  });
-
 // Utilities
 function rand(min,max){ return min + Math.random()*(max-min); }
 function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
@@ -99,21 +62,17 @@ function createMarble() {
   const y = 30 + rand(-5,5);
   const m = {x,y,vx:rand(-1.5,1.5),vy:rand(-0.5,0.5),r,color:randColor()};
   marbles.push(m);
-  saveState();
   updateCount();
-  return m;
 }
 
 function removeOne() {
   if (!marbles.length) return;
   marbles.pop();
-  saveState();
   updateCount();
 }
 
 function resetJar() {
   marbles = [];
-  saveState();
   updateCount();
 }
 
@@ -170,12 +129,6 @@ function render(){
   requestAnimationFrame(render);
 }
 render();
-
-// Save state to Firestore
-function saveState(){
-  db.collection("marbleJar").doc("state").set({marbles})
-    .catch(e=>console.error("Error saving marbles:",e));
-}
 
 // Update count
 function updateCount(){

@@ -10,7 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
 <script>
-  // Your Firebase configuration
+  // Firebase configuration
   var firebaseConfig = {
     apiKey: "AIzaSyBTvMRkuknQ4tXMHa8Bd1Dc_gMaR60hQE4",
     authDomain: "grade-marbles.firebaseapp.com",
@@ -71,12 +71,12 @@ const GRAVITY = 0.2;
 const FRICTION = 0.995;
 const BOUNCE = 0.85;
 
-// Load initial marble state from Firestore
+// Load marble state from Firestore
 db.collection("marbleJar").doc("state").get().then(doc => {
   if (doc.exists) marbles = doc.data().marbles || [];
   updateCount();
 }).catch(e => {
-  console.log("Firestore read failed, continuing with empty jar.", e);
+  console.log("Firestore read failed, starting with empty jar.", e);
 });
 
 // Listen for real-time updates
@@ -88,7 +88,7 @@ db.collection("marbleJar").doc("state")
     }
   });
 
-// Utility
+// Utilities
 function rand(min,max){ return min + Math.random()*(max-min); }
 function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
 
@@ -177,7 +177,7 @@ function saveState(){
     .catch(e=>console.error("Error saving marbles:",e));
 }
 
-// Update count display
+// Update count
 function updateCount(){
   countEl.textContent = `Marbles: ${marbles.length}`;
 }
@@ -190,7 +190,7 @@ function resizeCanvas(){
 window.addEventListener('resize',resizeCanvas);
 resizeCanvas();
 
-// Button events
+// Buttons
 addBtn.addEventListener('click',()=>createMarble());
 removeBtn.addEventListener('click',()=>removeOne());
 resetBtn.addEventListener('click',()=>{

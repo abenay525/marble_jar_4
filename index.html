@@ -81,7 +81,6 @@ const BOUNCE = 0.85;
 
 let marbles = []; // array of marble objects
 
-// Load marbles from Firestore
 db.collection("marbleJar").doc("state").get().then(doc => {
   if (doc.exists) {
     marbles = doc.data().marbles || [];
@@ -89,6 +88,11 @@ db.collection("marbleJar").doc("state").get().then(doc => {
     marbles = [];
   }
   updateCount();
+
+  // Enable teacher buttons only after data loads
+  addBtn.disabled = true;
+  removeBtn.disabled = true;
+  resetBtn.disabled = true;
 });
 
 // Utility

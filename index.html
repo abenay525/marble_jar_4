@@ -1,10 +1,21 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Test</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marble Jar — Test</title>
+<style>
+:root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
+html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+.topbar{display:flex;gap:8px;align-items:center;padding:10px;background:transparent}
+button{background:var(--btn);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+button.gray{background:#666}
+button:disabled{background:#aaa;cursor:not-allowed}
+#count{margin-left:auto;font-weight:700;color:var(--ui)}
+#canvasWrap{display:flex;justify-content:center;padding:12px}
+canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;height:auto}
+</style>
 </head>
 <body>
-<h1>Hello Marble Jar Test</h1>
-</body>
-</html>
+
+<div class=

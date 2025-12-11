@@ -1,116 +1,186 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Shared Marble Jar</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Marble Jar — Add Single Marble</title>
 <style>
-  body { 
-    font-family: sans-serif; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    background: #f0f0f0; 
-    margin:0; 
-    padding:0;
-  }
-  canvas { border:2px solid #444; border-radius:12px; background:#fff; margin-top:20px; }
-  #controls { margin-top: 20px; }
-  button { margin:5px; padding:10px 15px; font-size:16px; }
+  :root{--bg:#eef2f5;--ui:#222;--btn:#2e7d32}
+  html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+  .topbar{display:flex;gap:8px;align-items:center;padding:10px;background:transparent}
+  button{background:var(--btn);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+  button.gray{background:#666}
+  button:disabled{background:#aaa;cursor:not-allowed}
+  #count{margin-left:auto;font-weight:700;color:var(--ui)}
+  #canvasWrap{display:flex;justify-content:center;padding:12px}
+  canvas{background:#fff;border-radius:14px;border:3px solid #444;max-width:100%;height:auto}
+  .note{font-size:12px;color:#555;margin-left:8px}
 </style>
 </head>
 <body>
 
-<h2>Shared Marble Jar</h2>
-<canvas id="jarCanvas" width="500" height="600"></canvas>
-
-<div id="controls">
-  <button onclick="addMarblePrompt()">Add Marble(s)</button>
-  <button onclick="removeMarblePrompt()">Remove Marble(s)</button>
-  <button onclick="resetJar()">Reset Jar</button>
-  <button onclick="teacherLogin()">Teacher Login</button>
+<div class="topbar">
+  <button id="teacherLogin">Teacher Login</button>
+  <button id="addBtn" disabled>Add 1</button>
+  <button id="removeBtn" disabled>Remove 1</button>
+  <button id="resetBtn" disabled class="gray">Reset (Teacher)</button>
+  <div id="count">Marbles: 0</div>
 </div>
 
-<p>Total Marbles: <span id="count">0</span></p>
+<div id="canvasWrap">
+  <canvas id="c" width="900" height="500" aria-label="Marble jar"></canvas>
+</div>
 
 <script>
-const canvas = document.getElementById("jarCanvas");
-const ctx = canvas.getContext("2d");
+/* Marble Jar — single-add version
+   - Save as index.html and publish on GitHub Pages
+   - Teacher password controlled. Change TEACHER_PASSWORD below if desired.
+*/
 
-const BIN_ID = "693a03a3ae596e708f9126c0";
-const API_KEY = "$2a$10$0rZ/Uu8tUG56P9.a7m1nHu21gNVTdlPYXrNYbwMEM5mIoudpjmfEi";
+  // JSONBin.io configuration
+const BIN_ID = "693a03a3ae596e708f9126c0";   // your bin ID
+const API_KEY = "$2a$10$0rZ/Uu8tUG56P9.a7m1nHu21gNVTdlPYXrNYbwMEM5mIoudpjmfEi"; // your API key
 
-let marbles = [];
-let marbleCount = 0;
-let isTeacher = false;
-
-// Gravity and physics settings
-const gravity = 0.5;
-const bounce = -0.7;
-
-// Marble class
-class Marble {
-  constructor() {
-    this.radius = 15 + Math.random()*5;
-    this.x = 100 + Math.random()*300;
-    this.y = 50;
-    this.vx = Math.random()*4-2;
-    this.vy = 0;
-    this.color = ["red","blue","green","yellow","purple"][Math.floor(Math.random()*5)];
-  }
-  update() {
-    this.vy += gravity;
-    this.x += this.vx;
-    this.y += this.vy;
-
-    // collision with jar bottom
-    if(this.y + this.radius > 550) {
-      this.y = 550 - this.radius;
-      this.vy *= bounce;
-      this.vx *= 0.9;
-    }
-    // collision with jar sides
-    if(this.x - this.radius < 50) { this.x = 50 + this.radius; this.vx *= bounce; }
-    if(this.x + this.radius > 450) { this.x = 450 - this.radius; this.vx *= bounce; }
-  }
-  draw() {
-    const grad = ctx.createRadialGradient(this.x-3,this.y-3,this.radius/5,this.x,this.y,this.radius);
-    grad.addColorStop(0,this.color);
-    grad.addColorStop(1,"#555");
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
-    ctx.fillStyle = grad;
-    ctx.fill();
-  }
-}
-
-// Draw jar
-function drawJar() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#ddd";
-  ctx.fillRect(50,50,400,500); // jar
-  marbles.forEach(m => { m.update(); m.draw(); });
-}
-
-// Update count display
-function updateCount() {
-  document.getElementById("count").innerText = marbleCount;
-}
-
-// Load count from JSONBin
+  // Load marble count from JSONBin.io
 async function loadMarbles() {
   try {
     const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
       headers: { "X-Master-Key": API_KEY }
     });
     const data = await res.json();
-    marbleCount = data.record.marbles || 0;
+    marbleCount = data.record.marbles || 0;  // set count from bin
     marbles = [];
-    for(let i=0;i<marbleCount;i++) marbles.push(new Marble());
-    updateCount();
-  } catch(e) { console.error("Failed to load marbles:", e); }
+    for (let i = 0; i < marbleCount; i++) marbles.push(new Marble()); // create marble objects
+    updateCount();  // update display
+  } catch(e) {
+    console.error("Failed to load marbles:", e);
+  }
 }
 
-// Save count to JSONBin
+
+const TEACHER_PASSWORD = "openup123"; // <-- change this to set your teacher password
+
+// Canvas + context
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+// Controls
+const teacherLogin = document.getElementById("teacherLogin");
+const addBtn = document.getElementById("addBtn");
+const removeBtn = document.getElementById("removeBtn");
+const resetBtn = document.getElementById("resetBtn");
+const countEl = document.getElementById("count");
+
+// Physics state
+let marbles = []; // each: {x,y,vx,vy,r,color}
+const GRAVITY = 0.2;
+const FRICTION = 0.995;
+const BOUNCE = 0.85;
+
+// Utility
+function rand(min, max){ return min + Math.random()*(max-min); }
+function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
+
+// Create one marble at top center-ish (single add)
+async function createMarble() {
+  const r = (window.innerWidth < 520) ? 14 : 18;
+  const x = canvas.width/2 + rand(-60,60);
+  const y = 30 + rand(-5,5);
+  const m = { x, y, vx: rand(-1.5,1.5), vy: rand(-0.5,0.5), r, color: randColor() };
+  marbles.push(m);
+  marbleCount += 1;
+  updateCount();
+  await saveMarbles();
+  return m;
+}
+
+async function removeOne() {
+  if (marbles.length === 0) return;
+  marbles.pop();
+  marbleCount -= 1;
+  updateCount();
+  await saveMarbles();
+}
+
+async function resetJar() {
+  if(!confirm('Reset jar? This will remove all marbles.')) return;
+  marbles = [];
+  marbleCount = 0;
+  updateCount();
+  await saveMarbles();
+}
+  
+// Physics and collisions (pairwise simple)
+function stepPhysics() {
+  const W = canvas.width, H = canvas.height;
+  for (let i=0;i<marbles.length;i++){
+    const m = marbles[i];
+    m.vy += GRAVITY;
+    m.vx *= FRICTION; m.vy *= FRICTION;
+    m.x += m.vx; m.y += m.vy;
+
+    // walls
+    if (m.x - m.r < 0){ m.x = m.r; m.vx = -m.vx * BOUNCE; }
+    if (m.x + m.r > W){ m.x = W - m.r; m.vx = -m.vx * BOUNCE; }
+    if (m.y - m.r < 0){ m.y = m.r; m.vy = -m.vy * BOUNCE; }
+    if (m.y + m.r > H){ m.y = H - m.r; m.vy = -m.vy * BOUNCE; }
+
+    // collisions
+    for (let j=i+1;j<marbles.length;j++){
+      const n = marbles[j];
+      const dx = n.x - m.x;
+      const dy = n.y - m.y;
+      const dist = Math.hypot(dx,dy);
+      const minD = m.r + n.r;
+      if (dist > 0 && dist < minD){
+        const overlap = minD - dist;
+        const ux = dx / dist, uy = dy / dist;
+        // separate
+        m.x -= ux * overlap * 0.5;
+        m.y -= uy * overlap * 0.5;
+        n.x += ux * overlap * 0.5;
+        n.y += uy * overlap * 0.5;
+        // exchange velocities (simple)
+        const tvx = m.vx, tvy = m.vy;
+        m.vx = n.vx * 0.95; m.vy = n.vy * 0.95;
+        n.vx = tvx * 0.95; n.vy = tvy * 0.95;
+      }
+    }
+  }
+}
+
+// Draw glossy marble
+function drawMarble(m){
+  const g = ctx.createRadialGradient(m.x - m.r*0.35, m.y - m.r*0.35, m.r*0.1, m.x, m.y, m.r);
+  g.addColorStop(0,'rgba(255,255,255,0.95)');
+  g.addColorStop(0.15,'rgba(255,255,255,0.6)');
+  g.addColorStop(0.5, m.color);
+  g.addColorStop(1, 'rgba(0,0,0,0.08)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(m.x, m.y, m.r, 0, Math.PI*2);
+  ctx.fill();
+  // subtle outline
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+// Render loop
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  stepPhysics();
+  for (const m of marbles) drawMarble(m);
+  updateCount();
+  requestAnimationFrame(render);
+}
+render();
+
+function updateCount(){
+  countEl.textContent = `Marbles: ${marbles.length}`;
+}
+
+// Save marble count to JSONBin.io
 async function saveMarbles() {
   try {
     await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
@@ -119,71 +189,58 @@ async function saveMarbles() {
         "Content-Type": "application/json",
         "X-Master-Key": API_KEY
       },
-      body: JSON.stringify({marbles: marbleCount})
+      body: JSON.stringify({ marbles: marbleCount })
     });
-  } catch(e) { console.error("Failed to save marbles:", e); }
-}
-
-// Add/Remove/Reset
-async function addMarbles(n) {
-  if(!isTeacher) { alert("Teacher login required!"); return; }
-  for(let i=0;i<n;i++) marbles.push(new Marble());
-  marbleCount += n;
-  updateCount();
-  await saveMarbles();
-}
-
-async function removeMarbles(n) {
-  if(!isTeacher) { alert("Teacher login required!"); return; }
-  n = Math.min(n, marbleCount);
-  marbles.splice(0,n);
-  marbleCount -= n;
-  updateCount();
-  await saveMarbles();
-}
-
-async function resetJar() {
-  if(!isTeacher) { alert("Teacher login required!"); return; }
-  if(confirm("Are you sure you want to reset the jar?")) {
-    marbles = [];
-    marbleCount = 0;
-    updateCount();
-    await saveMarbles();
+  } catch(e) {
+    console.error("Failed to save marbles:", e);
   }
 }
 
-// Prompt wrappers
-function addMarblePrompt() {
-  const n = parseInt(prompt("How many marbles to add?", "1"));
-  if(!isNaN(n) && n>0) addMarbles(n);
+  
+// Resize canvas responsively
+function resizeCanvas(){
+  // keep aspect ratio, scale internal buffer to CSS pixels
+  canvas.width = Math.min(window.innerWidth - 20, 1100);
+  canvas.height = Math.min(window.innerHeight - 140, 700);
 }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-function removeMarblePrompt() {
-  const n = parseInt(prompt("How many marbles to remove?", "1"));
-  if(!isNaN(n) && n>0) removeMarbles(n);
-}
-
-// Teacher login
-function teacherLogin() {
-  const pw = prompt("Enter teacher password:");
-  if(pw==="openup123") {
-    isTeacher = true;
-    alert("Teacher access granted!");
+// Teacher login: toggles controls when correct password entered
+teacherLogin.addEventListener('click', ()=> {
+  const p = prompt('Enter teacher password:');
+  if (p === TEACHER_PASSWORD){
+    addBtn.disabled = false;
+    removeBtn.disabled = false;
+    resetBtn.disabled = false;
+    alert('Teacher controls unlocked.');
   } else {
-    alert("Wrong password");
+    alert('Incorrect password.');
+  }
+});
+
+  async function saveMarbles() {
+  try {
+    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": API_KEY
+      },
+      body: JSON.stringify({ marbles: marbleCount })
+    });
+  } catch(e) {
+    console.error("Failed to save marbles:", e);
   }
 }
 
-// Animation loop
-function animate() {
-  drawJar();
-  requestAnimationFrame(animate);
-}
+  addBtn.addEventListener('click', ()=> { createMarble(); });
+removeBtn.addEventListener('click', ()=> { removeOne(); });
+resetBtn.addEventListener('click', ()=> { resetJar(); });
 
-// Initialize
-loadMarbles();
-animate();
+// on first load, if marbles exist, keep controls disabled (students see marbles only)
+updateCount();
+saveState();
 </script>
-
 </body>
 </html>

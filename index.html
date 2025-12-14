@@ -33,34 +33,18 @@
 
 <script>
 /* Marble Jar — single-add version
-   - Save as index.html and publish on GitHub Pages
-   - Teacher password controlled. Change TEACHER_PASSWORD below if desired.
+   - Uses JSONBin.io to share marble count
+   - Teacher password protected
 */
 
-  // JSONBin.io configuration
-const BIN_ID = "693a03a3ae596e708f9126c0";   // your bin ID
-const API_KEY = "$2a$10$0rZ/Uu8tUG56P9.a7m1nHu21gNVTdlPYXrNYbwMEM5mIoudpjmfEi"; // your API key
+// JSONBin.io config
+const BIN_ID = "693a03a3ae596e708f9126c0";
+const API_KEY = "$2a$10$0rZ/Uu8tUG56P9.a7m1nHu21gNVTdlPYXrNYbwMEM5mIoudpjmfEi";
 
-  // Load marble count from JSONBin.io
-async function loadMarbles() {
-  try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-      headers: { "X-Master-Key": API_KEY }
-    });
-    const data = await res.json();
-    marbleCount = data.record.marbles || 0;  // set count from bin
-    marbles = [];
-    for (let i = 0; i < marbleCount; i++) marbles.push(new Marble()); // create marble objects
-    updateCount();  // update display
-  } catch(e) {
-    console.error("Failed to load marbles:", e);
-  }
-}
+// Teacher password
+const TEACHER_PASSWORD = "openup123";
 
-
-const TEACHER_PASSWORD = "openup123"; // <-- change this to set your teacher password
-
-// Canvas + context
+// Canvas setup
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
@@ -71,24 +55,63 @@ const removeBtn = document.getElementById("removeBtn");
 const resetBtn = document.getElementById("resetBtn");
 const countEl = document.getElementById("count");
 
-// Physics state
+// Physics and marbles
 let marbles = []; // each: {x,y,vx,vy,r,color}
+let marbleCount = 0;
 const GRAVITY = 0.2;
 const FRICTION = 0.995;
 const BOUNCE = 0.85;
 
-// Utility
+// Utilities
 function rand(min, max){ return min + Math.random()*(max-min); }
 function randColor(){ return `hsl(${rand(0,360)},70%,55%)`; }
 
-// Create one marble at top center-ish (single add)
+// Load marble count from JSONBin.io
+async function loadMarbles() {
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+      headers: { "X-Master-Key": API_KEY }
+    });
+    const data = await res.json();
+    marbleCount = data.record.marbles || 0;
+    marbles.length = 0;
+    for (let i = 0; i < marbleCount; i++) {
+      const r = (window.innerWidth < 520) ? 14 : 18;
+      const x = canvas.width/2 + rand(-60,60);
+      const y = 30 + rand(-5,5);
+      const m = { x, y, vx: rand(-1.5,1.5), vy: rand(-0.5,0.5), r, color: randColor() };
+      marbles.push(m);
+    }
+    updateCount();
+  } catch(e) {
+    console.error("Failed to load marbles:", e);
+  }
+}
+
+// Save marble count to JSONBin.io
+async function saveMarbles() {
+  try {
+    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": API_KEY
+      },
+      body: JSON.stringify({ marbles: marbleCount })
+    });
+  } catch(e) {
+    console.error("Failed to save marbles:", e);
+  }
+}
+
+// Create, remove, reset
 async function createMarble() {
   const r = (window.innerWidth < 520) ? 14 : 18;
   const x = canvas.width/2 + rand(-60,60);
   const y = 30 + rand(-5,5);
   const m = { x, y, vx: rand(-1.5,1.5), vy: rand(-0.5,0.5), r, color: randColor() };
   marbles.push(m);
-  marbleCount += 1;
+  marbleCount++;
   updateCount();
   await saveMarbles();
   return m;
@@ -97,7 +120,7 @@ async function createMarble() {
 async function removeOne() {
   if (marbles.length === 0) return;
   marbles.pop();
-  marbleCount -= 1;
+  marbleCount--;
   updateCount();
   await saveMarbles();
 }
@@ -109,8 +132,8 @@ async function resetJar() {
   updateCount();
   await saveMarbles();
 }
-  
-// Physics and collisions (pairwise simple)
+
+// Physics step
 function stepPhysics() {
   const W = canvas.width, H = canvas.height;
   for (let i=0;i<marbles.length;i++){
@@ -135,12 +158,8 @@ function stepPhysics() {
       if (dist > 0 && dist < minD){
         const overlap = minD - dist;
         const ux = dx / dist, uy = dy / dist;
-        // separate
-        m.x -= ux * overlap * 0.5;
-        m.y -= uy * overlap * 0.5;
-        n.x += ux * overlap * 0.5;
-        n.y += uy * overlap * 0.5;
-        // exchange velocities (simple)
+        m.x -= ux * overlap * 0.5; m.y -= uy * overlap * 0.5;
+        n.x += ux * overlap * 0.5; n.y += uy * overlap * 0.5;
         const tvx = m.vx, tvy = m.vy;
         m.vx = n.vx * 0.95; m.vy = n.vy * 0.95;
         n.vx = tvx * 0.95; n.vy = tvy * 0.95;
@@ -149,7 +168,7 @@ function stepPhysics() {
   }
 }
 
-// Draw glossy marble
+// Draw marble
 function drawMarble(m){
   const g = ctx.createRadialGradient(m.x - m.r*0.35, m.y - m.r*0.35, m.r*0.1, m.x, m.y, m.r);
   g.addColorStop(0,'rgba(255,255,255,0.95)');
@@ -160,13 +179,12 @@ function drawMarble(m){
   ctx.beginPath();
   ctx.arc(m.x, m.y, m.r, 0, Math.PI*2);
   ctx.fill();
-  // subtle outline
   ctx.strokeStyle = 'rgba(0,0,0,0.12)';
   ctx.lineWidth = 1;
   ctx.stroke();
 }
 
-// Render loop
+// Render
 function render(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   stepPhysics();
@@ -174,39 +192,26 @@ function render(){
   updateCount();
   requestAnimationFrame(render);
 }
-render();
 
+// Update count display
 function updateCount(){
   countEl.textContent = `Marbles: ${marbles.length}`;
 }
 
-// Save marble count to JSONBin.io
-async function saveMarbles() {
-  try {
-    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key": API_KEY
-      },
-      body: JSON.stringify({ marbles: marbleCount })
-    });
-  } catch(e) {
-    console.error("Failed to save marbles:", e);
-  }
-}
-
-  
-// Resize canvas responsively
+// Resize canvas
 function resizeCanvas(){
-  // keep aspect ratio, scale internal buffer to CSS pixels
   canvas.width = Math.min(window.innerWidth - 20, 1100);
   canvas.height = Math.min(window.innerHeight - 140, 700);
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Teacher login: toggles controls when correct password entered
+// Button events
+addBtn.addEventListener('click', ()=>{ createMarble(); });
+removeBtn.addEventListener('click', ()=>{ removeOne(); });
+resetBtn.addEventListener('click', ()=>{ resetJar(); });
+
+// Teacher login
 teacherLogin.addEventListener('click', ()=> {
   const p = prompt('Enter teacher password:');
   if (p === TEACHER_PASSWORD){
@@ -219,28 +224,9 @@ teacherLogin.addEventListener('click', ()=> {
   }
 });
 
-  async function saveMarbles() {
-  try {
-    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key": API_KEY
-      },
-      body: JSON.stringify({ marbles: marbleCount })
-    });
-  } catch(e) {
-    console.error("Failed to save marbles:", e);
-  }
-}
-
-  addBtn.addEventListener('click', ()=> { createMarble(); });
-removeBtn.addEventListener('click', ()=> { removeOne(); });
-resetBtn.addEventListener('click', ()=> { resetJar(); });
-
-// on first load, if marbles exist, keep controls disabled (students see marbles only)
-updateCount();
-saveState();
+// Start
+loadMarbles();
+render();
 </script>
 </body>
 </html>
